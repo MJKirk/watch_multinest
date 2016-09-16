@@ -28,7 +28,7 @@ def __main__():
                         dest="tol",
                         help="MultiNest evidence tolerance factor (tol)",
                         type=float,
-                        default=float("inf"),
+                        default=0.1,
                         required=False)
     parser.add_argument("--maxiter",
                         dest="maxiter",
