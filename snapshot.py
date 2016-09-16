@@ -21,13 +21,13 @@ PREAMBLE = """Four stopping criteria are applied per mode:
     1. 1a. AND 1b.
     2. n_live_mode < n_dims + 1
     3. ln max_like - ln min_like <= 1E-3
-    4. n_rejectd >= max_iter
+    4. n_rejected >= max_iter
 
 where we define delta = max_like * volume / evidence in a mode.
 
 Once all modes have stopped, MultiNest stops.
 
-Most modes eventually stop via criteria 1. 1b. is usually satisified long
+Most modes eventually stop via criteria 1. 1b. is usually satisfied long
 before 1a.
 
 Monitor progression of scan by tracking progress of ln delta towards ln tol
