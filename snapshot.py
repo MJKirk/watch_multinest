@@ -7,7 +7,7 @@ files.
 """
 
 from __future__ import print_function
-from numpy import log, exp, loadtxt
+from numpy import log, exp, loadtxt, mean
 from os.path import isfile
 from warnings import warn
 from pprint import pformat
@@ -138,6 +138,8 @@ def snapshot(root, tol=float("inf"), maxiter=float("inf")):
     # Read information from *phys_live.points and *live.points
 
     global_["ln_max_like"] = max(phys_live[-2])
+    global_["max_like"] = exp(global_["ln_max_like"])
+    global_["expected_like"] = mean(exp(phys_live[-2]))
     global_["min_chi_squared"] = -2. * global_["ln_max_like"]
     global_["n_params"] = phys_live.shape[0] - 2
     global_["n_dims"] = live.shape[0] - 1
@@ -268,6 +270,8 @@ def snapshot(root, tol=float("inf"), maxiter=float("inf")):
         mode_ln_like = phys_live[:, phys_live[-1] == n_mode][-2]
 
         mode["ln_max_like"] = max(mode_ln_like)
+        mode["max_like"] = exp(mode["ln_max_like"])
+        mode["expected_like"] = mean(exp(mode_ln_like))
         mode["ln_min_like"] = min(mode_ln_like)
         mode["min_chi_squared"] = -2. * mode["ln_max_like"]
 
@@ -277,6 +281,8 @@ def snapshot(root, tol=float("inf"), maxiter=float("inf")):
 
         mode["ln_delta"] = log(mode["vol"]) + mode["ln_max_like"] - mode["ln_Z"]
         mode["delta"] = exp(mode["ln_delta"])
+        mode["ln_expected_delta"] = log(mode["vol"]) + log(mode["expected_like"]) - mode["ln_Z"]
+        mode["expected_delta"] = exp(mode["ln_expected_delta"])
 
         mode["stop_1a"] = mode["delta"] < global_["tol"]
         mode["stop_1b"] = global_["stop_1b"]
