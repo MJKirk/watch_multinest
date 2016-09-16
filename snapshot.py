@@ -7,10 +7,10 @@ files.
 """
 
 from __future__ import print_function
-from numpy import log, exp, loadtxt, mean
 from os.path import isfile
 from warnings import warn
 from pprint import pformat
+from numpy import log, exp, loadtxt, mean
 
 PREAMBLE = """Four stopping criteria are applied per mode:
 
@@ -89,7 +89,7 @@ def print_snapshot(root, tol=float("inf"), maxiter=float("inf")):
         print(pformat(mode), end="\n\n")
 
 
-def snapshot(root, tol=float("inf"), maxiter=float("inf")):
+def snapshot(root, tol=0.1, maxiter=float("inf")):
     """
     :param root: Prefix of MultiNest output filenames (root)
     :type root: string
@@ -233,7 +233,7 @@ def snapshot(root, tol=float("inf"), maxiter=float("inf")):
 
         # Guess whether in constant efficiency mode by whether next line
         # is length 1
-        if not "ceff" in global_:
+        if "ceff" not in global_:
             global_["ceff"] = bool(modes_resume) and len(modes_resume[0]) == 1
 
         # Read unknown information about constant efficiency mode
@@ -293,7 +293,10 @@ def snapshot(root, tol=float("inf"), maxiter=float("inf")):
 
         stop = (mode["stop_1"] or mode["stop_2"] or
                 mode["stop_3"] or mode["stop_4"])
-        assert mode["stop"] == stop, "Inconsistent convergence criteria!"
+
+        if not mode["stop"] == stop:
+            warn("Inconsistent stopping criteria. "
+                 "The assumed tol = {} may be too small".format(tol))
 
     ############################################################################
 

@@ -16,9 +16,6 @@ import matplotlib.pyplot as plt
 import inotify.adapters as inotify
 import numpy as np
 
-import warnings
-warnings.simplefilter("ignore")
-
 
 def watch(root, tol=float("inf"), maxiter=float("inf")):
     """
@@ -45,7 +42,7 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
     # Data-holders
     time_data = []
     ln_delta_data = []
-    
+
     time_start = datetime.now()
     print("Start time: %s" % time_start)
 
