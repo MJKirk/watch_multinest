@@ -32,6 +32,12 @@ before 1a.
 
 Monitor progression of scan by tracking progress of ln delta towards ln tol
 per mode.
+
+The *integrated* evidence is that found by summing \int L dX at each iteration
+of the MN algorithm.
+
+The *provisional* evidence is the integrated evidence *plus* potential evidence
+remaining in the live points, estimated as expected(like) * vol.
 """
 
 ################################################################################
@@ -251,9 +257,9 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     # Extra global calculations
 
-    global_["Z"] = exp(global_["ln_Z"])
+    global_["Z_integrated"] = exp(global_["ln_Z"])
     global_["ln_Z_error"] = _error_ln_evidence(global_)
-    global_["Z_error"] = global_["ln_Z_error"] * global_["Z"]
+    global_["Z_error"] = global_["ln_Z_error"] * global_["Z_integrated"]
     global_["stop_1b"] = global_["n_rejected"] - global_["n_live"] > 50
     global_["stop_4"] = global_["n_rejected"] >= global_["maxiter"]
     global_["stop"] = all([mode["stop"] for mode in modes.values()])
@@ -275,14 +281,15 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         mode["ln_min_like"] = min(mode_ln_like)
         mode["min_chi_squared"] = -2. * mode["ln_max_like"]
 
-        mode["Z"] = exp(mode["ln_Z"])
+        mode["Z_integrated"] = exp(mode["ln_Z"])
         mode["ln_Z_error"] = _error_ln_evidence(mode)
-        mode["Z_error"] = mode["ln_Z_error"] * mode["Z"]
+        mode["Z_error"] = mode["ln_Z_error"] * mode["Z_integrated"]
 
         mode["ln_delta"] = log(mode["vol"]) + mode["ln_max_like"] - mode["ln_Z"]
         mode["delta"] = exp(mode["ln_delta"])
         mode["ln_expected_delta"] = log(mode["vol"]) + log(mode["expected_like"]) - mode["ln_Z"]
         mode["expected_delta"] = exp(mode["ln_expected_delta"])
+        mode["Z_provisional"] = mode["Z_integrated"] + mode["expected_like"] * mode["vol"]
 
         mode["stop_1a"] = mode["delta"] < global_["tol"]
         mode["stop_1b"] = global_["stop_1b"]
@@ -297,6 +304,12 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         if not mode["stop"] == stop:
             warn("Inconsistent stopping criteria. "
                  "The assumed tol = {} may be too small".format(tol))
+                 
+    ############################################################################
+    
+    # Sum provisional evidence per mode
+    
+    global_["Z_provisional"] = sum([mode["Z_provisional"] for mode in modes.itervalues()])
 
     ############################################################################
 
