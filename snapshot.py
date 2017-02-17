@@ -16,28 +16,28 @@ PREAMBLE = """Four stopping criteria are applied per mode:
 
     mode_stop = 1. OR 2. OR 3. OR 4.
 
-    1a. delta < tol
+    1a. delta_max < tol
     1b. n_rejected - n_live > 50
     1. 1a. AND 1b.
     2. n_live_mode < n_dims + 1
     3. ln max_like - ln min_like <= 1E-4
     4. n_rejected >= max_iter
 
-where we define delta = max_like * volume / evidence in a mode.
+where we define delta_max = max_like * volume / evidence in a mode.
 
 Once all modes have stopped, MultiNest stops.
 
 Most modes eventually stop via criteria 1. 1b. is usually satisfied long
 before 1a.
 
-Monitor progression of scan by tracking progress of ln delta towards ln tol
+Monitor progression of scan by tracking progress of ln_delta_max towards ln_tol
 per mode.
 
-The *integrated* evidence is that found by summing \int L dX at each iteration
-of the MN algorithm.
+The *z_trapezoidal* evidence is that found by summing \int L dX at each iteration
+of the MN algorithm with the trapezoidal rule.
 
-The *provisional* evidence is the integrated evidence *plus* potential evidence
-remaining in the live points, estimated as expected(like) * vol.
+The *z_trapezoidal_plus_active* evidence is the trapezoidal evidence *plus* evidence
+remaining in the active live points, estimated as expected(like) * vol.
 """
 
 ################################################################################
@@ -51,7 +51,7 @@ def _error_ln_evidence(mode_):
     :returns: Error on log evidence
     :rtype: float
     """
-    info = mode_["ln_Z_info"]
+    info = mode_["ln_z_trapezium_info"]
     n_live = mode_["n_live"]
     return (abs(info) / n_live)**0.5
 
@@ -135,18 +135,18 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     modes_resume = resume[4:]  # Mode-specific information
 
     # Check first 4 lines of *resume.dat
-    expected_shape = [1, 4, 2, 1]
+    mean_shape = [1, 4, 2, 1]
     shape = map(len, global_resume)
-    assert expected_shape == shape, "Wrong format: %s" % resume_name
+    assert mean_shape == shape, "Wrong format: %s" % resume_name
 
     ############################################################################
 
     # Read information from *phys_live.points and *live.points
 
-    global_["ln_max_like"] = max(phys_live[-2])
-    global_["max_like"] = exp(global_["ln_max_like"])
-    global_["expected_like"] = mean(exp(phys_live[-2]))
-    global_["min_chi_squared"] = -2. * global_["ln_max_like"]
+    global_["ln_like_max"] = max(phys_live[-2])
+    global_["max_like"] = exp(global_["ln_like_max"])
+    global_["like_mean"] = mean(exp(phys_live[-2]))
+    global_["min_chi_squared"] = -2. * global_["ln_like_max"]
     global_["n_params"] = phys_live.shape[0] - 2
     global_["n_dims"] = live.shape[0] - 1
 
@@ -174,10 +174,10 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     assert global_["n_live"] >= 0
 
     # Read total log evidence
-    global_["ln_Z"] = float(global_resume[2][0])
+    global_["ln_z_trapezium"] = float(global_resume[2][0])
 
     # Read error of total log evidence
-    global_["ln_Z_info"] = float(global_resume[2][1])
+    global_["ln_z_trapezium_info"] = float(global_resume[2][1])
 
     # Read whether ellipsoidal sampling
     global_["ellipsoidal"] = _BOOL_STRING(global_resume[3][0])
@@ -232,10 +232,10 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         assert mode["vol"] >= 0.
 
         # Read log evidence in mode
-        mode["ln_Z"] = float(mode_line[1])
+        mode["ln_z_trapezium"] = float(mode_line[1])
 
         # Read error of log evidence in mode
-        mode["ln_Z_info"] = float(mode_line[2])
+        mode["ln_z_trapezium_info"] = float(mode_line[2])
 
         # Guess whether in constant efficiency mode by whether next line
         # is length 1
@@ -257,9 +257,9 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     # Extra global calculations
 
-    global_["Z_integrated"] = exp(global_["ln_Z"])
-    global_["ln_Z_error"] = _error_ln_evidence(global_)
-    global_["Z_error"] = global_["ln_Z_error"] * global_["Z_integrated"]
+    global_["z_trapezium"] = exp(global_["ln_z_trapezium"])
+    global_["ln_z_trapezium_error"] = _error_ln_evidence(global_)
+    global_["z_trapezium_error"] = global_["ln_z_trapezium_error"] * global_["z_trapezium"]
     global_["stop_1b"] = global_["n_rejected"] - global_["n_live"] > 50
     global_["stop_4"] = global_["n_rejected"] >= global_["maxiter"]
     global_["stop"] = all([mode["stop"] for mode in modes.values()])
@@ -275,27 +275,36 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         # Column of log likelihood for this mode
         mode_ln_like = phys_live[:, phys_live[-1] == n_mode][-2]
 
-        mode["ln_max_like"] = max(mode_ln_like)
-        mode["max_like"] = exp(mode["ln_max_like"])
-        mode["expected_like"] = mean(exp(mode_ln_like))
-        mode["ln_min_like"] = min(mode_ln_like)
-        mode["min_chi_squared"] = -2. * mode["ln_max_like"]
+        mode["ln_like_max"] = max(mode_ln_like)
+        mode["like_max"] = exp(mode["ln_like_max"])
+        
+        mode["ln_like_min"] = min(mode_ln_like)
+        mode["like_min"] = exp(mode["ln_like_min"])
+        
+        mode["like_mean"] = mean(exp(mode_ln_like))
+        mode["ln_like_mean"] = mean(mode_ln_like)
 
-        mode["Z_integrated"] = exp(mode["ln_Z"])
-        mode["ln_Z_error"] = _error_ln_evidence(mode)
-        mode["Z_error"] = mode["ln_Z_error"] * mode["Z_integrated"]
+        mode["chi_squared_min"] = -2. * mode["ln_like_max"]
+        mode["chi_squared_max"] = -2. * mode["ln_like_min"]
+        mode["chi_squared_mean"] = -2. * mode["ln_like_mean"]
 
-        mode["ln_delta"] = log(mode["vol"]) + mode["ln_max_like"] - mode["ln_Z"]
-        mode["delta"] = exp(mode["ln_delta"])
-        mode["ln_expected_delta"] = log(mode["vol"]) + log(mode["expected_like"]) - mode["ln_Z"]
-        mode["expected_delta"] = exp(mode["ln_expected_delta"])
-        mode["Z_provisional"] = mode["Z_integrated"] + mode["expected_like"] * mode["vol"]
+        mode["z_trapezium"] = exp(mode["ln_z_trapezium"])
+        mode["ln_z_trapezium_error"] = _error_ln_evidence(mode)
+        mode["z_trapezium_error"] = mode["ln_z_trapezium_error"] * mode["z_trapezium"]
 
-        mode["stop_1a"] = mode["delta"] < global_["tol"]
+        mode["ln_delta_max"] = log(mode["vol"]) + mode["ln_like_max"] - mode["ln_z_trapezium"]
+        mode["delta_max"] = exp(mode["ln_delta_max"])
+        mode["ln_delta_mean"] = log(mode["vol"]) + log(mode["like_mean"]) - mode["ln_z_trapezium"]
+        mode["delta_mean"] = exp(mode["ln_delta_mean"])
+        
+        mode["z_active"] = mode["like_mean"] * mode["vol"]
+        mode["z_trapezium_plus_active"] = mode["z_trapezium"] + mode["z_active"]
+
+        mode["stop_1a"] = mode["delta_max"] < global_["tol"]
         mode["stop_1b"] = global_["stop_1b"]
         mode["stop_1"] = mode["stop_1a"] and mode["stop_1b"]
         mode["stop_2"] = mode["n_live"] < global_["n_dims"] + 1
-        mode["stop_3"] = mode["ln_max_like"] - mode["ln_min_like"] <= 1E-4
+        mode["stop_3"] = mode["ln_like_max"] - mode["ln_like_min"] <= 1E-4
         mode["stop_4"] = global_["stop_4"]
 
         stop = (mode["stop_1"] or mode["stop_2"] or
@@ -309,7 +318,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     
     # Sum provisional evidence per mode
     
-    global_["Z_provisional"] = sum([mode["Z_provisional"] for mode in modes.itervalues()])
+    global_["z_trapezium_plus_active"] = sum([mode["z_trapezium_plus_active"] for mode in modes.itervalues()])
 
     ############################################################################
 
