@@ -20,7 +20,7 @@ PREAMBLE = """Four stopping criteria are applied per mode:
     1b. n_rejected - n_live > 50
     1. 1a. AND 1b.
     2. n_live_mode < n_dims + 1
-    3. ln max_like - ln min_like <= 1E-3
+    3. ln max_like - ln min_like <= 1E-4
     4. n_rejected >= max_iter
 
 where we define delta = max_like * volume / evidence in a mode.
@@ -295,7 +295,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         mode["stop_1b"] = global_["stop_1b"]
         mode["stop_1"] = mode["stop_1a"] and mode["stop_1b"]
         mode["stop_2"] = mode["n_live"] < global_["n_dims"] + 1
-        mode["stop_3"] = mode["ln_max_like"] - mode["ln_min_like"] <= 1E-3
+        mode["stop_3"] = mode["ln_max_like"] - mode["ln_min_like"] <= 1E-4
         mode["stop_4"] = global_["stop_4"]
 
         stop = (mode["stop_1"] or mode["stop_2"] or
