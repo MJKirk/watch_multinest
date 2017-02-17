@@ -20,10 +20,10 @@ PREAMBLE = """Four stopping criteria are applied per mode:
     1b. n_rejected - n_live > 50
     1. 1a. AND 1b.
     2. n_live_mode < n_dims + 1
-    3. ln max_like - ln min_like <= 1E-4
+    3. ln like_max - ln min_like <= 1E-4
     4. n_rejected >= max_iter
 
-where we define delta_max = max_like * volume / evidence in a mode.
+where we define delta_max = like_max * volume / evidence in a mode.
 
 Once all modes have stopped, MultiNest stops.
 
@@ -142,11 +142,12 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     ############################################################################
 
     # Read information from *phys_live.points and *live.points
-
-    global_["ln_like_max"] = max(phys_live[-2])
-    global_["max_like"] = exp(global_["ln_like_max"])
-    global_["like_mean"] = mean(exp(phys_live[-2]))
-    global_["min_chi_squared"] = -2. * global_["ln_like_max"]
+    
+    ln_like = phys_live[-2]
+    global_["ln_like_max"] = max(ln_like)
+    global_["like_max"] = exp(global_["ln_like_max"])
+    global_["like_mean"] = mean(exp(ln_like))
+    global_["chi_squared_min"] = -2. * global_["ln_like_max"]
     global_["n_params"] = phys_live.shape[0] - 2
     global_["n_dims"] = live.shape[0] - 1
 
@@ -155,7 +156,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     # Read information about *global* evidence etc from *resume.dat
 
     # Read whether live-points generated
-    global_["gen_live"] = _BOOL_STRING(global_resume[0][0])
+    global_["gen_live_completed"] = not _BOOL_STRING(global_resume[0][0])
 
     # Read number of rejected points
     global_["n_rejected"] = int(global_resume[1][0])
@@ -186,7 +187,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     # Read information about *modes* from *resume.dat
 
-    modes = {m + 1: dict([["mode", m + 1]]) for m in range(global_["n_modes"])}
+    modes = {m: dict([["mode", m]]) for m in range(global_["n_modes"])}
 
     for mode in modes.values():
 
@@ -203,10 +204,10 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
             branch_line = modes_resume.pop(0)
             assert len(branch_line) == 2
 
-            mode["branch_unknown_1"] = str(branch_line[0])
-            mode["branch_unknown_2"] = str(branch_line[1])
+            mode["ic_brnch(i,1:ic_nBrnch(i),1)"] = str(branch_line[0])
+            mode["ic_brnch(i,1:ic_nBrnch(i),2)"] = str(branch_line[1])
         else:
-            mode["branch_unkown_1"] = mode["branch_unkown_2"] = None
+            mode["ic_brnch(i,1:ic_nBrnch(i),1)"] = mode["ic_brnch(i,1:ic_nBrnch(i),2)"] = None
 
     for mode in modes.values():
 
@@ -217,8 +218,8 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         mode["stop"] = _BOOL_STRING(mode_line[0])
 
         # Read unknown information about mode
-        mode["mode_unknown_1"] = str(mode_line[1])
-        mode["mode_unknown_2"] = str(mode_line[2])
+        mode["ic_reme - possibly whether this node has children"] = str(mode_line[1])
+        mode["ic_fNode - possibly indicates parent mode"] = str(mode_line[2])
 
         # Read number of live points in mode
         mode["n_live"] = int(mode_line[3])
@@ -273,7 +274,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     for n_mode, mode in modes.iteritems():
 
         # Column of log likelihood for this mode
-        mode_ln_like = phys_live[:, phys_live[-1] == n_mode][-2]
+        mode_ln_like = phys_live[:, phys_live[-1] == n_mode + 1][-2]
 
         mode["ln_like_max"] = max(mode_ln_like)
         mode["like_max"] = exp(mode["ln_like_max"])
