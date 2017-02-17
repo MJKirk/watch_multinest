@@ -42,6 +42,26 @@ remaining in the active live points, estimated as expected(like) * vol.
 
 ################################################################################
 
+def safe_loadtxt(name, fill=0.):
+    """
+    :param name: Name of file
+    :type name: str
+    
+    :returns: result of np.loadtxt
+    :rtype: list
+    """
+    
+    def safe_float(x):
+        try:
+            return float(x)
+        except ValueError:
+            return fill
+
+    with open(name) as f:
+        n_cols = len(f.readline().split())
+
+    safe_float_dict = dict.fromkeys(range(n_cols), safe_float)
+    return loadtxt(name, unpack=True, converters=safe_float_dict)
 
 def _error_ln_evidence(mode_):
     """
@@ -128,8 +148,9 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     assert isfile(live_name), "Cannot find: %s" % live_name
 
     # Read data from *resume.dat, *phys_live.points and *live.points
-    phys_live = loadtxt(phys_live_name, unpack=True)
-    live = loadtxt(live_name, unpack=True)
+            
+    phys_live = safe_loadtxt(phys_live_name)
+    live = safe_loadtxt(live_name)
     resume = map(str.split, open(resume_name))
     global_resume = resume[:4]  # General information
     modes_resume = resume[4:]  # Mode-specific information
