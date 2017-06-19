@@ -12,7 +12,7 @@ from warnings import warn
 from pprint import pformat
 from numpy import log, exp, loadtxt, mean
 
-PREAMBLE = """Four stopping criteria are applied per mode:
+PREAMBLE = r"""Four stopping criteria are applied per mode:
 
     mode_stop = 1. OR 2. OR 3. OR 4.
 
@@ -46,19 +46,23 @@ def safe_loadtxt(name, fill=0.):
     """
     :param name: Name of file
     :type name: str
-    
+
     :returns: result of np.loadtxt
     :rtype: list
     """
-    
-    def safe_float(x):
+
+    def safe_float(str_float):
+        """
+        :returns: Float of string
+        :rtype: float
+        """
         try:
-            return float(x)
+            return float(str_float)
         except ValueError:
             return fill
 
-    with open(name) as f:
-        n_cols = len(f.readline().split())
+    with open(name) as file_:
+        n_cols = len(file_.readline().split())
 
     safe_float_dict = dict.fromkeys(range(n_cols), safe_float)
     return loadtxt(name, unpack=True, converters=safe_float_dict)
@@ -76,7 +80,12 @@ def _error_ln_evidence(mode_):
     return (abs(info) / n_live)**0.5
 
 
+
 _BOOL_STRING = lambda string: string == "T"
+MAX_LEN = 70
+TRIM = lambda string: string[:MAX_LEN]
+
+
 
 ################################################################################
 
@@ -140,15 +149,16 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     global_["root"] = root
 
     # Check *resume.dat, *phys_live.points and *live.points
-    resume_name = global_["root"] + "resume.dat"
-    phys_live_name = global_["root"] + "phys_live.points"
-    live_name = global_["root"] + "live.points"
+    resume_name = TRIM(global_["root"] + "resume.dat")
+    phys_live_name = TRIM(global_["root"] + "phys_live.points")
+    live_name = TRIM(global_["root"] + "live.points")
+
     assert isfile(resume_name), "Cannot find: %s" % resume_name
     assert isfile(phys_live_name), "Cannot find: %s" % phys_live_name
     assert isfile(live_name), "Cannot find: %s" % live_name
 
     # Read data from *resume.dat, *phys_live.points and *live.points
-            
+
     phys_live = safe_loadtxt(phys_live_name)
     live = safe_loadtxt(live_name)
     resume = map(str.split, open(resume_name))
@@ -163,7 +173,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     ############################################################################
 
     # Read information from *phys_live.points and *live.points
-    
+
     ln_like = phys_live[-2]
     global_["ln_like_max"] = max(ln_like)
     global_["like_max"] = exp(global_["ln_like_max"])
@@ -206,29 +216,34 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     ############################################################################
 
-    # Read information about *modes* from *resume.dat
+    # Read information about *branches* from *resume.dat
 
     modes = {m: dict([["mode", m]]) for m in range(global_["n_modes"])}
 
     for mode in modes.values():
 
+        mode["branch_number"] = list()
+        mode["branch_line"] = list()
+
         branch_line = modes_resume.pop(0)
         assert len(branch_line) == 1
 
         # Read number of branches in mode
-        mode["branch_number"] = int(branch_line[0])
-        assert mode["branch_number"] >= 0
+        branch_number = int(branch_line[0])
+        assert branch_number >= 0
+        mode["branch_number"].append(branch_number)
 
-        # Read unknown information about branches
-        if mode["branch_number"]:
-
+        # Read unknown information about branches. This corresponds to
+        # ic_brnch(i,1:ic_nBrnch(i),1),ic_brnch(i,1:ic_nBrnch(i),2)
+        # I don't fully understand expected format of these lines.
+        if branch_number:
             branch_line = modes_resume.pop(0)
-            assert len(branch_line) == 2
+            # assert len(branch_line) == 2 * branch_number, branch_line
+            mode["branch_line"].append(branch_line)
 
-            mode["ic_brnch(i,1:ic_nBrnch(i),1)"] = str(branch_line[0])
-            mode["ic_brnch(i,1:ic_nBrnch(i),2)"] = str(branch_line[1])
-        else:
-            mode["ic_brnch(i,1:ic_nBrnch(i),1)"] = mode["ic_brnch(i,1:ic_nBrnch(i),2)"] = None
+    ############################################################################
+
+    # Read information about *modes* from *resume.dat
 
     for mode in modes.values():
 
@@ -244,7 +259,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
         # Read number of live points in mode
         mode["n_live"] = int(mode_line[3])
-        assert mode["n_live"] > 0
+        assert mode["n_live"] >= 0
 
         mode_line = modes_resume.pop(0)
         assert len(mode_line) == 3
@@ -254,7 +269,10 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
         assert mode["vol"] >= 0.
 
         # Read log evidence in mode
-        mode["ln_z_trapezium"] = float(mode_line[1])
+        try:
+            mode["ln_z_trapezium"] = float(mode_line[1])
+        except ValueError:
+            mode["ln_z_trapezium"] = -1E100
 
         # Read error of log evidence in mode
         mode["ln_z_trapezium_info"] = float(mode_line[2])
@@ -294,52 +312,60 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     for n_mode, mode in modes.iteritems():
 
-        # Column of log likelihood for this mode
-        mode_ln_like = phys_live[:, phys_live[-1] == n_mode + 1][-2]
-
-        mode["ln_like_max"] = max(mode_ln_like)
-        mode["like_max"] = exp(mode["ln_like_max"])
-        
-        mode["ln_like_min"] = min(mode_ln_like)
-        mode["like_min"] = exp(mode["ln_like_min"])
-        
-        mode["like_mean"] = mean(exp(mode_ln_like))
-        mode["ln_like_mean"] = mean(mode_ln_like)
-
-        mode["chi_squared_min"] = -2. * mode["ln_like_max"]
-        mode["chi_squared_max"] = -2. * mode["ln_like_min"]
-        mode["chi_squared_mean"] = -2. * mode["ln_like_mean"]
-
         mode["z_trapezium"] = exp(mode["ln_z_trapezium"])
-        mode["ln_z_trapezium_error"] = _error_ln_evidence(mode)
-        mode["z_trapezium_error"] = mode["ln_z_trapezium_error"] * mode["z_trapezium"]
 
-        mode["ln_delta_max"] = log(mode["vol"]) + mode["ln_like_max"] - mode["ln_z_trapezium"]
-        mode["delta_max"] = exp(mode["ln_delta_max"])
-        mode["ln_delta_mean"] = log(mode["vol"]) + log(mode["like_mean"]) - mode["ln_z_trapezium"]
-        mode["delta_mean"] = exp(mode["ln_delta_mean"])
-        
-        mode["z_active"] = mode["like_mean"] * mode["vol"]
-        mode["z_trapezium_plus_active"] = mode["z_trapezium"] + mode["z_active"]
+        if mode["n_live"] > 0:
 
-        mode["stop_1a"] = mode["delta_max"] < global_["tol"]
-        mode["stop_1b"] = global_["stop_1b"]
-        mode["stop_1"] = mode["stop_1a"] and mode["stop_1b"]
-        mode["stop_2"] = mode["n_live"] < global_["n_dims"] + 1
-        mode["stop_3"] = mode["ln_like_max"] - mode["ln_like_min"] <= 1E-4
-        mode["stop_4"] = global_["stop_4"]
+            # Column of log likelihood for this mode
+            mode_ln_like = phys_live[:, phys_live[-1] == n_mode + 1][-2]
 
-        stop = (mode["stop_1"] or mode["stop_2"] or
-                mode["stop_3"] or mode["stop_4"])
+            mode["ln_like_max"] = max(mode_ln_like)
+            mode["like_max"] = exp(mode["ln_like_max"])
 
-        if not mode["stop"] == stop:
-            warn("Inconsistent stopping criteria. "
-                 "The assumed tol = {} may be too small".format(tol))
-                 
+            mode["ln_like_min"] = min(mode_ln_like)
+            mode["like_min"] = exp(mode["ln_like_min"])
+
+            mode["like_mean"] = mean(exp(mode_ln_like))
+            mode["ln_like_mean"] = mean(mode_ln_like)
+
+            mode["chi_squared_min"] = -2. * mode["ln_like_max"]
+            mode["chi_squared_max"] = -2. * mode["ln_like_min"]
+            mode["chi_squared_mean"] = -2. * mode["ln_like_mean"]
+
+            mode["ln_delta_max"] = log(mode["vol"]) + mode["ln_like_max"] - mode["ln_z_trapezium"]
+            mode["delta_max"] = exp(mode["ln_delta_max"])
+            mode["ln_delta_mean"] = log(mode["vol"]) + log(mode["like_mean"]) - mode["ln_z_trapezium"]
+            mode["delta_mean"] = exp(mode["ln_delta_mean"])
+            mode["z_active"] = mode["like_mean"] * mode["vol"]
+
+            mode["ln_z_trapezium_error"] = _error_ln_evidence(mode)
+            mode["z_trapezium_error"] = mode["ln_z_trapezium_error"] * mode["z_trapezium"]
+
+            mode["z_trapezium_plus_active"] = mode["z_trapezium"] + mode["z_active"]
+
+            mode["stop_1a"] = mode["delta_max"] < global_["tol"]
+            mode["stop_1b"] = global_["stop_1b"]
+            mode["stop_1"] = mode["stop_1a"] and mode["stop_1b"]
+            mode["stop_2"] = mode["n_live"] > global_["n_dims"] + 1
+            mode["stop_3"] = mode["ln_like_max"] - mode["ln_like_min"] <= 1E-4
+            mode["stop_4"] = global_["stop_4"]
+
+            stop = (mode["stop_1"] or mode["stop_2"] or
+                    mode["stop_3"] or mode["stop_4"])
+
+            if not mode["stop"] == stop:
+                warn("Inconsistent stopping criteria. "
+                     "The assumed tol = {} may be too small".format(tol))
+
+
+        else:
+            mode["z_active"] = 0.
+            mode["z_trapezium_plus_active"] = mode["z_trapezium"]
+
     ############################################################################
-    
+
     # Sum provisional evidence per mode
-    
+
     global_["z_trapezium_plus_active"] = sum([mode["z_trapezium_plus_active"] for mode in modes.itervalues()])
 
     ############################################################################
