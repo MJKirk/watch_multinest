@@ -5,7 +5,7 @@ Watch
 Watch status of a MultiNest scan.
 """
 
-from __future__ import print_function
+
 from os.path import dirname, isdir, basename
 from snapshot import snapshot, print_snapshot
 from datetime import datetime, timedelta
@@ -60,7 +60,7 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
 
             # Record data about delta
             time_data.append(snap_time)
-            ln_delta = [mode["ln_delta_max"] for mode in snap["modes"].values()]
+            ln_delta = [mode["ln_delta_max"] for mode in list(snap["modes"].values())]
             ln_delta_data.append(ln_delta)
 
         else:
@@ -76,7 +76,7 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
             # Extrapolate time-remaining and plot, if possible
             time_float = [(t - time_start).total_seconds() for t in time_data]
 
-            for n_mode, ln_delta in enumerate(map(list, zip(*ln_delta_data))):
+            for n_mode, ln_delta in enumerate(map(list, list(zip(*ln_delta_data)))):
 
                 fit = np.polyfit(ln_delta, time_float, 10)
                 time_func = np.poly1d(fit)

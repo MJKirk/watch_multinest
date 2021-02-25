@@ -6,7 +6,7 @@ Check whether a MultiNest scan is close to stopping by reading output
 files.
 """
 
-from __future__ import print_function
+
 from os.path import isfile
 from warnings import warn
 from pprint import pformat
@@ -64,7 +64,7 @@ def safe_loadtxt(name, fill=0.):
     with open(name) as file_:
         n_cols = len(file_.readline().split())
 
-    safe_float_dict = dict.fromkeys(range(n_cols), safe_float)
+    safe_float_dict = dict.fromkeys(list(range(n_cols)), safe_float)
     return loadtxt(name, unpack=True, converters=safe_float_dict)
 
 def _error_ln_evidence(mode_):
@@ -161,13 +161,13 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     phys_live = safe_loadtxt(phys_live_name)
     live = safe_loadtxt(live_name)
-    resume = map(str.split, open(resume_name))
+    resume = list(map(str.split, open(resume_name)))
     global_resume = resume[:4]  # General information
     modes_resume = resume[4:]  # Mode-specific information
 
     # Check first 4 lines of *resume.dat
     mean_shape = [1, 4, 2, 1]
-    shape = map(len, global_resume)
+    shape = list(map(len, global_resume))
     assert mean_shape == shape, "Wrong format: %s" % resume_name
 
     ############################################################################
@@ -220,7 +220,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     modes = {m: dict([["mode", m]]) for m in range(global_["n_modes"])}
 
-    for mode in modes.values():
+    for mode in list(modes.values()):
 
         mode["branch_number"] = list()
         mode["branch_line"] = list()
@@ -245,7 +245,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     # Read information about *modes* from *resume.dat
 
-    for mode in modes.values():
+    for mode in list(modes.values()):
 
         mode_line = modes_resume.pop(0)
         assert len(mode_line) == 4
@@ -302,7 +302,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
     global_["z_trapezium_error"] = global_["ln_z_trapezium_error"] * global_["z_trapezium"]
     global_["stop_1b"] = global_["n_rejected"] - global_["n_live"] > 50
     global_["stop_4"] = global_["n_rejected"] >= global_["maxiter"]
-    global_["stop"] = all([mode["stop"] for mode in modes.values()])
+    global_["stop"] = all([mode["stop"] for mode in list(modes.values())])
     if global_["stop"] and not global_["stop_1b"]:
         warn("Unusual convergence - very few rejected points")
 
@@ -310,7 +310,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     # Extra calculations per mode
 
-    for n_mode, mode in modes.iteritems():
+    for n_mode, mode in modes.items():
 
         mode["z_trapezium"] = exp(mode["ln_z_trapezium"])
 
@@ -366,7 +366,7 @@ def snapshot(root, tol=0.1, maxiter=float("inf")):
 
     # Sum provisional evidence per mode
 
-    global_["z_trapezium_plus_active"] = sum([mode["z_trapezium_plus_active"] for mode in modes.itervalues()])
+    global_["z_trapezium_plus_active"] = sum([mode["z_trapezium_plus_active"] for mode in modes.values()])
 
     ############################################################################
 
