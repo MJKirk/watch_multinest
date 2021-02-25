@@ -60,7 +60,7 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
 
             # Record data about delta
             time_data.append(snap_time)
-            ln_delta = [mode["ln_delta"] for mode in snap["modes"].values()]
+            ln_delta = [mode["ln_delta_max"] for mode in snap["modes"].values()]
             ln_delta_data.append(ln_delta)
 
         else:
