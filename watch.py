@@ -42,7 +42,10 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
     # Data-holders
     time_data = []
     ln_delta_data = []
-
+    
+    # Change check
+    ALL_SAME = True
+    
     time_start = datetime.now()
     print("Start time: %s" % time_start)
 
@@ -61,9 +64,18 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
             # Record data about delta
             time_data.append(snap_time)
             ln_delta = [mode["ln_delta_max"] for mode in list(snap["modes"].values())]
+            
+            if ln_delta != ln_delta[-1]:
+                ALL_SAME = False
+            
             ln_delta_data.append(ln_delta)
 
         else:
+            
+            if ALL_SAME:
+                print("Waiting for different data points to make good estimate")
+                continue
+            
 
             # Make plot of progress
             fig = plt.figure()
