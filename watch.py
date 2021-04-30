@@ -83,7 +83,7 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
                 fit = np.polyfit(ln_delta, np.log(time_float), 1)
                 lntime_func = np.poly1d(fit)
                 time_func = lambda x: np.exp(lntime_func(x))
-                time_seconds = time_func(log(tol))
+                time_seconds = time_func(np.log(tol))
                 guess_time_end = time_start + timedelta(seconds=time_seconds)
 
                 estimate_seconds = [time_func(x) for x in ln_delta]
