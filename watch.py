@@ -89,9 +89,9 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
                 estimate_seconds = [time_func(x) for x in ln_delta]
                 estimate_time = [time_start + timedelta(seconds=e) for e in estimate_seconds]
 
-                plt.plot(estimate_time + [guess_time_end], ln_delta + [log(tol)])
+                plt.plot(estimate_time + [guess_time_end], ln_delta + [np.log(tol)])
                 plt.plot(time_data, ln_delta, "*")
-                plt.axhline(log(tol), color="r")
+                plt.axhline(np.log(tol), color="r")
 
                 print("Mode: %s. Estimated end time: %s" %(n_mode, guess_time_end))
 
