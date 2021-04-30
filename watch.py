@@ -10,11 +10,9 @@ from os.path import dirname, isdir, basename
 from snapshot import snapshot, print_snapshot
 from datetime import datetime, timedelta
 from warnings import warn
-from numpy import log, sign
-
+import numpy as np
 import matplotlib.pyplot as plt
 import inotify.adapters as inotify
-import numpy as np
 
 
 def watch(root, tol=float("inf"), maxiter=float("inf")):
