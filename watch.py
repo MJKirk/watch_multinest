@@ -82,8 +82,9 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
 
             for n_mode, ln_delta in enumerate(map(list, list(zip(*ln_delta_data)))):
 
-                fit = np.polyfit(ln_delta, time_float, 10)
-                time_func = np.poly1d(fit)
+                fit = np.polyfit(ln_delta, np.log(time_float), 1)
+                lntime_func = np.poly1d(fit)
+                time_func = lambda x: np.exp(lntime_func(x))
                 time_seconds = time_func(log(tol))
                 guess_time_end = time_start + timedelta(seconds=time_seconds)
 
