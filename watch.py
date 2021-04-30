@@ -43,9 +43,6 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
     time_data = []
     ln_delta_data = []
     
-    # Change check
-    ALL_SAME = True
-    
     time_start = datetime.now()
     print("Start time: %s" % time_start)
 
@@ -58,25 +55,20 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
                 snap_time = datetime.now()
                 snap = snapshot(root, tol, maxiter)
             except Exception as error:
-                warn(error.message)
+                warn(str(error))
                 continue
 
             # Record data about delta
             time_data.append(snap_time)
             ln_delta = [mode["ln_delta_max"] for mode in list(snap["modes"].values())]
-            
-            if ln_delta != ln_delta[-1]:
-                ALL_SAME = False
-            
             ln_delta_data.append(ln_delta)
 
         else:
             
-            if ALL_SAME:
+            if ln_delta_data == [] or ln_delta_data[-1] == ln_delta_data[0]:
                 print("Waiting for different data points to make good estimate")
                 continue
             
-
             # Make plot of progress
             fig = plt.figure()
             ax = fig.add_subplot(1, 1, 1)
