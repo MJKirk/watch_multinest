@@ -40,7 +40,11 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
     # Data-holders
     time_data = []
     ln_delta_data = []
-    
+
+    # Control of when to start fitting
+    WAITING = True
+    unique_ln_delta_values = 0
+
     time_start = datetime.now()
     print("Start time: %s" % time_start)
 
@@ -60,11 +64,19 @@ def watch(root, tol=float("inf"), maxiter=float("inf")):
             time_data.append(snap_time)
             ln_delta = [mode["ln_delta_max"] for mode in list(snap["modes"].values())]
             ln_delta_data.append(ln_delta)
+            if WAITING:
+                try:
+                    if ln_delta_data[-2] != ln_delta_data[-1]:
+                        unique_ln_delta_values += 1
+                        print("Got", unique_ln_delta_values, "values, will start fitting at 10")
+                except IndexError:
+                    pass
+                if unique_ln_delta_values >= 10:
+                    WAITING = False
 
         else:
             
-            if ln_delta_data == [] or ln_delta_data[-1] == ln_delta_data[0]:
-                print("Waiting for different data points to make good estimate")
+            if WAITING:
                 continue
             
             # Make plot of progress
